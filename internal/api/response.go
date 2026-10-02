@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"log/slog"
 	"net/http"
+	"strconv"
 )
 
 // ErrorBody 统一错误响应：{"code": "...", "message": "..."}。
@@ -23,9 +24,29 @@ func writeError(w http.ResponseWriter, status int, code, msg string) {
 	writeJSON(w, status, ErrorBody{Code: code, Message: msg})
 }
 
-func badRequest(w http.ResponseWriter, msg string)     { writeError(w, http.StatusBadRequest, "bad_request", msg) }
-func unauthorized(w http.ResponseWriter, msg string)   { writeError(w, http.StatusUnauthorized, "unauthorized", msg) }
-func notFound(w http.ResponseWriter, code string)      { writeError(w, http.StatusNotFound, code, "not found") }
+func badRequest(w http.ResponseWriter, msg string) {
+	writeError(w, http.StatusBadRequest, "bad_request", msg)
+}
+func unauthorized(w http.ResponseWriter, msg string) {
+	writeError(w, http.StatusUnauthorized, "unauthorized", msg)
+}
+func forbidden(w http.ResponseWriter, msg string) {
+	writeError(w, http.StatusForbidden, "forbidden", msg)
+}
+func notFound(w http.ResponseWriter, code string) {
+	writeError(w, http.StatusNotFound, code, "not found")
+}
+
+// rateLimited 按 guide 5.1 带上 Retry-After 头。
+func rateLimited(w http.ResponseWriter, retryAfter int) {
+	w.Header().Set("Retry-After", strconv.Itoa(retryAfter))
+	writeError(w, http.StatusTooManyRequests, "rate_limited", "too many requests")
+}
+
+func unavailable(w http.ResponseWriter, msg string) {
+	writeError(w, http.StatusServiceUnavailable, "unavailable", msg)
+}
+
 func internalErr(w http.ResponseWriter, logger *slog.Logger, err error) {
 	logger.Error("internal error", "err", err)
 	writeError(w, http.StatusInternalServerError, "internal", "internal error")

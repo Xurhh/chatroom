@@ -22,32 +22,32 @@ type Message struct {
 
 // InEnvelope 是客户端上行消息。公共字段 type 必填。
 type InEnvelope struct {
-	Type        string `json:"type"`                   // join | leave | chat | typing | ping
-	Room        string `json:"room,omitempty"`         // 房间 ID
-	LastSeq     string `json:"last_seq,omitempty"`     // join 时携带：本地已收到的最大 seq
+	Type        string `json:"type"`                    // join | leave | chat | typing | ping
+	Room        string `json:"room,omitempty"`          // 房间 ID
+	LastSeq     string `json:"last_seq,omitempty"`      // join 时携带：本地已收到的最大 seq
 	ClientMsgID string `json:"client_msg_id,omitempty"` // chat 幂等键（UUID）
-	Content     string `json:"content,omitempty"`      // chat 文本
+	Content     string `json:"content,omitempty"`       // chat 文本
 }
 
 // ---------- S→C ----------
 
 // OutEnvelope 是服务端下行消息。
 type OutEnvelope struct {
-	Type        string     `json:"type"`                   // joined | sync | message | ack | presence | typing | error | pong
-	Room        string     `json:"room,omitempty"`
-	Seq         string     `json:"seq,omitempty"`
-	From        *User      `json:"from,omitempty"`
-	Content     string     `json:"content,omitempty"`
-	TS          int64      `json:"ts,omitempty"`
-	ClientMsgID string     `json:"client_msg_id,omitempty"` // ack / error.ref
-	Members     []User     `json:"members,omitempty"`       // joined 在线快照
-	Messages    []Message  `json:"messages,omitempty"`      // sync 补拉
-	LastSeq     string     `json:"last_seq,omitempty"`
-	Joins       []User     `json:"joins,omitempty"`         // presence
-	Leaves      []string   `json:"leaves,omitempty"`        // presence：userID 数组
-	Code        int        `json:"code,omitempty"`          // error
-	Message     string     `json:"message,omitempty"`       // error
-	Ref         string     `json:"ref,omitempty"`           // error：触发的 client_msg_id
+	Type        string    `json:"type"` // joined | sync | message | ack | presence | typing | error | pong
+	Room        string    `json:"room,omitempty"`
+	Seq         string    `json:"seq,omitempty"`
+	From        *User     `json:"from,omitempty"`
+	Content     string    `json:"content,omitempty"`
+	TS          int64     `json:"ts,omitempty"`
+	ClientMsgID string    `json:"client_msg_id,omitempty"` // ack / error.ref
+	Members     []User    `json:"members,omitempty"`       // joined 在线快照
+	Messages    []Message `json:"messages,omitempty"`      // sync 补拉
+	LastSeq     string    `json:"last_seq,omitempty"`
+	Joins       []User    `json:"joins,omitempty"`   // presence
+	Leaves      []string  `json:"leaves,omitempty"`  // presence：userID 数组
+	Code        int       `json:"code,omitempty"`    // error
+	Message     string    `json:"message,omitempty"` // error
+	Ref         string    `json:"ref,omitempty"`     // error：触发的 client_msg_id
 }
 
 // WS 关闭码 / error code（见 guide 5.5）。

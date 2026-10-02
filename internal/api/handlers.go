@@ -1,9 +1,11 @@
 package api
 
 import (
+	"errors"
 	"log/slog"
 	"net/http"
 	"strconv"
+	"sync"
 	"time"
 
 	"github.com/google/uuid"
@@ -18,8 +20,12 @@ import (
 type Handlers struct {
 	Auth   *authn.Service
 	Store  *store.Store
+	Rooms  *room.Service
 	Logger *slog.Logger
-	// M0 先用内存用户表占位，后续替换为 DB。
+
+	// M0 先用内存用户表占位（多副本/重启都会丢）。
+	// TODO(M1): 换成 DB + bcrypt/argon2 哈希；注意 register 与 login 都要走同一个存储。
+	mu    sync.RWMutex
 	users map[string]userRecord
 }
 
@@ -29,8 +35,17 @@ type userRecord struct {
 	Password string // TODO: bcrypt 哈希
 }
 
-func NewHandlers(auth *authn.Service, st *store.Store, logger *slog.Logger) *Handlers {
-	return &Handlers{Auth: auth, Store: st, Logger: logger, users: make(map[string]userRecord)}
+func NewHandlers(auth *authn.Service, st *store.Store, rooms *room.Service, logger *slog.Logger) *Handlers {
+	if logger == nil {
+		logger = slog.New(slog.DiscardHandler)
+	}
+	return &Handlers{
+		Auth:   auth,
+		Store:  st,
+		Rooms:  rooms,
+		Logger: logger,
+		users:  make(map[string]userRecord),
+	}
 }
 
 // ---------- auth ----------
@@ -49,12 +64,16 @@ func (h *Handlers) Register(w http.ResponseWriter, r *http.Request) {
 		badRequest(w, "username required, password min 6 chars")
 		return
 	}
+
+	h.mu.Lock()
+	defer h.mu.Unlock()
 	if _, taken := h.users[req.Username]; taken {
 		badRequest(w, "username taken")
 		return
 	}
 	u := userRecord{ID: "u_" + uuid.NewString()[:8], Name: req.Username, Password: req.Password}
 	h.users[req.Username] = u
+
 	writeJSON(w, http.StatusCreated, map[string]any{
 		"user_id":    u.ID,
 		"created_at": time.Now().Unix(),
@@ -66,11 +85,15 @@ func (h *Handlers) Login(w http.ResponseWriter, r *http.Request) {
 	if !decodeJSON(w, r, &req) {
 		return
 	}
+
+	h.mu.RLock()
 	u, ok := h.users[req.Username]
+	h.mu.RUnlock()
 	if !ok || u.Password != req.Password {
 		unauthorized(w, "wrong username or password")
 		return
 	}
+
 	token, exp, err := h.Auth.Issue(u.ID, u.Name)
 	if err != nil {
 		internalErr(w, h.Logger, err)
@@ -91,10 +114,15 @@ func (h *Handlers) Me(w http.ResponseWriter, r *http.Request) {
 // ---------- rooms ----------
 
 func (h *Handlers) ListRooms(w http.ResponseWriter, r *http.Request) {
-	// TODO: 游标分页，从 Redis meta 集合读取。M0 占位返回空列表。
+	limit, _ := strconv.Atoi(r.URL.Query().Get("limit"))
+	rooms, next, err := h.Rooms.List(r.Context(), r.URL.Query().Get("cursor"), limit)
+	if err != nil {
+		internalErr(w, h.Logger, err)
+		return
+	}
 	writeJSON(w, http.StatusOK, map[string]any{
-		"rooms":       []room.Room{},
-		"next_cursor": "",
+		"rooms":       rooms,
+		"next_cursor": next,
 	})
 }
 
@@ -111,29 +139,49 @@ func (h *Handlers) CreateRoom(w http.ResponseWriter, r *http.Request) {
 		badRequest(w, "name required")
 		return
 	}
-	// TODO: 写入 Redis meta Hash。
-	writeJSON(w, http.StatusCreated, room.Room{
-		ID:   "r_" + uuid.NewString()[:8],
-		Name: req.Name,
-	})
+	claims := ClaimsFrom(r)
+	created, err := h.Rooms.Create(r.Context(), claims.UserID, req.Name)
+	switch {
+	case errors.Is(err, room.ErrInvalid):
+		badRequest(w, "invalid room name")
+	case err != nil:
+		internalErr(w, h.Logger, err)
+	default:
+		writeJSON(w, http.StatusCreated, created)
+	}
 }
 
 func (h *Handlers) GetRoom(w http.ResponseWriter, r *http.Request) {
 	id := r.PathValue("id")
-	// TODO: 读 Redis meta。
-	writeJSON(w, http.StatusOK, room.Room{ID: id, Name: id})
+	got, err := h.Rooms.Get(r.Context(), id)
+	switch {
+	case errors.Is(err, room.ErrNotFound):
+		notFound(w, "room_not_found")
+	case err != nil:
+		internalErr(w, h.Logger, err)
+	default:
+		writeJSON(w, http.StatusOK, got)
+	}
 }
 
 func (h *Handlers) RoomMembers(w http.ResponseWriter, r *http.Request) {
 	id := r.PathValue("id")
-	members, err := h.Store.PresenceMembers(r.Context(), id)
+	if _, err := h.Rooms.Get(r.Context(), id); err != nil { // 房间不存在 → 404
+		if errors.Is(err, room.ErrNotFound) {
+			notFound(w, "room_not_found")
+			return
+		}
+		internalErr(w, h.Logger, err)
+		return
+	}
+	members, err := h.Rooms.Members(r.Context(), id)
 	if err != nil {
 		internalErr(w, h.Logger, err)
 		return
 	}
 	out := make([]chat.User, 0, len(members))
-	for uid, name := range members {
-		out = append(out, chat.User{ID: uid, Name: name})
+	for _, m := range members {
+		out = append(out, chat.User{ID: m.ID, Name: m.Name})
 	}
 	writeJSON(w, http.StatusOK, map[string]any{"members": out})
 }
@@ -151,12 +199,7 @@ func (h *Handlers) RoomMessages(w http.ResponseWriter, r *http.Request) {
 	}
 	out := make([]chat.Message, 0, len(msgs))
 	for _, m := range msgs {
-		out = append(out, chat.Message{
-			Seq:     m.Seq,
-			From:    &chat.User{ID: m.UserID, Name: m.Name},
-			Content: m.Content,
-			TS:      m.TS,
-		})
+		out = append(out, m.ToMessage()) // store.Message 是 chat.Record 的别名
 	}
 	writeJSON(w, http.StatusOK, map[string]any{
 		"messages": out,

@@ -2,3 +2,8 @@ bin/
 web/dist/
 *.log
 .env
+
+# 本地构建/测试临时目录（沙箱或 CI 里把 GOCACHE/GOPATH 指到仓库内时用）
+.tmp/
+coverage.out
+*.test

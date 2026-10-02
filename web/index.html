@@ -1,0 +1,148 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+    <meta name="theme-color" content="#4f46e5" />
+    <title>chatroom</title>
+    <link rel="stylesheet" href="css/style.css" />
+  </head>
+  <body>
+    <!-- ======================= 登录 / 注册视图 ======================= -->
+    <section id="view-login" class="view view-login">
+      <form id="login-form" class="card" autocomplete="on">
+        <h1 class="brand">chatroom</h1>
+        <p class="muted" id="login-hint">没有账号？点下面切换成注册。</p>
+
+        <label class="field">
+          <span>用户名</span>
+          <input
+            id="login-username"
+            name="username"
+            type="text"
+            autocomplete="username"
+            placeholder="例如 alice"
+            required
+          />
+        </label>
+
+        <label class="field">
+          <span>密码</span>
+          <input
+            id="login-password"
+            name="password"
+            type="password"
+            autocomplete="current-password"
+            placeholder="至少 6 位"
+            required
+          />
+        </label>
+
+        <button id="login-submit" class="btn-primary" type="submit">登录</button>
+        <button id="login-toggle" class="link" type="button">没有账号？去注册</button>
+
+        <p id="login-error" class="error" hidden></p>
+        <p class="muted small" id="mode-hint"></p>
+      </form>
+    </section>
+
+    <!-- ========================== 聊天视图 ========================== -->
+    <section id="view-chat" class="view view-chat" hidden>
+      <header class="topbar">
+        <button id="btn-toggle-rooms" class="icon-btn only-mobile" type="button" aria-label="房间列表">
+          ☰
+        </button>
+
+        <div class="room-title">
+          <span id="room-name">未选择房间</span>
+        </div>
+
+        <div class="topbar-right">
+          <span class="muted small" id="me-name"></span>
+          <button id="btn-logout" class="link" type="button">退出</button>
+          <button
+            id="btn-toggle-members"
+            class="icon-btn only-mobile"
+            type="button"
+            aria-label="成员列表"
+          >
+            👥
+          </button>
+        </div>
+      </header>
+
+      <!-- 断线 / 重连横幅 -->
+      <div id="conn-banner" class="banner" hidden></div>
+
+      <main class="layout">
+        <!-- ---------------------- 左栏：房间 ---------------------- -->
+        <aside id="col-rooms" class="col col-rooms">
+          <div class="col-head">
+            <span>房间</span>
+            <button id="btn-new-room" class="link" type="button">+ 新建</button>
+          </div>
+
+          <div id="new-room-form" class="new-room" hidden>
+            <input id="new-room-name" type="text" maxlength="64" placeholder="房间名称" />
+            <button id="btn-create-room" class="btn-mini" type="button">创建</button>
+          </div>
+
+          <ul id="room-list" class="room-list"></ul>
+
+          <!-- 仅 mock 模式可见的演示工具 -->
+          <div class="col-foot">
+            <button id="btn-demo-other" class="link mock-only" type="button" hidden>
+              演示：其它房间来消息
+            </button>
+            <button id="btn-simulate-drop" class="link mock-only" type="button" hidden>
+              模拟断线（验证重连 + 补拉）
+            </button>
+          </div>
+        </aside>
+
+        <!-- ---------------------- 中栏：消息 ---------------------- -->
+        <section class="col col-chat">
+          <div id="typing-indicator" class="typing" hidden></div>
+          <div id="message-list" class="messages" role="log" aria-live="polite"></div>
+
+          <form id="composer" class="composer" autocomplete="off">
+            <textarea
+              id="input-message"
+              rows="1"
+              placeholder="说点什么…（Enter 发送，Shift+Enter 换行）"
+            ></textarea>
+            <button id="btn-send" class="btn-primary btn-send" type="submit">发送</button>
+          </form>
+        </section>
+
+        <!-- ---------------------- 右栏：成员 ---------------------- -->
+        <aside id="col-members" class="col col-members">
+          <div class="col-head">
+            <span>在线成员</span>
+            <span class="badge-soft" id="member-count"></span>
+          </div>
+          <ul id="member-list" class="member-list"></ul>
+        </aside>
+      </main>
+    </section>
+
+    <!-- 轻提示宿主 -->
+    <div id="toast-host" class="toast-host" aria-live="polite"></div>
+
+    <!--
+      普通 <script> 顺序引入（不用 ES Module、不用打包工具）：
+      这样双击 index.html（file:// 协议）也能直接运行，见 README「两种运行方式」。
+      加载顺序有依赖：config → store（工具/状态）→ mock → api → ws → 组件 → main
+    -->
+    <script src="js/config.js"></script>
+    <script src="js/store.js"></script>
+    <script src="js/mock.js"></script>
+    <script src="js/api.js"></script>
+    <script src="js/ws.js"></script>
+    <script src="js/components/toast.js"></script>
+    <script src="js/components/roomList.js"></script>
+    <script src="js/components/messageList.js"></script>
+    <script src="js/components/memberList.js"></script>
+    <script src="js/main.js"></script>
+  </body>
+</html>

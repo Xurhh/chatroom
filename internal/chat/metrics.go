@@ -28,6 +28,15 @@ var (
 		Help:    "单次扇出耗时",
 		Buckets: prometheus.ExponentialBuckets(0.0005, 2, 12),
 	})
+	PresenceLeaveDropped = promauto.NewCounter(prometheus.CounterOpts{
+		Name: "ws_presence_leave_dropped_total",
+		Help: "离线清理队列满导致的丢弃总数（兜底是 presence TTL）",
+	})
+	PresenceLeaveDuration = promauto.NewHistogram(prometheus.HistogramOpts{
+		Name:    "ws_presence_leave_duration_seconds",
+		Help:    "单次离线清理（摘 presence + 广播）耗时",
+		Buckets: prometheus.ExponentialBuckets(0.0005, 2, 12),
+	})
 	ReadErrors = promauto.NewCounterVec(prometheus.CounterOpts{
 		Name: "ws_read_errors_total",
 		Help: "读错误（按类型）",
