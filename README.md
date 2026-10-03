@@ -59,7 +59,7 @@ internal/
   store/             Redis 封装：Stream 历史、dedup、presence、房间 meta、Pub/Sub 适配
   config/            环境变量
 deploy/              Dockerfile、docker-compose.yml、k8s/*.yaml
-loadtest/ws.js       k6 压测脚本（guide 9.3）
+loadtest/            k6 压测脚本 + 读数方法（guide 9.3）
 web/                 前端（原生 HTML/CSS/JS，guide 第 8 章；含 test/ 自动化测试）
   index.html         页面骨架            js/api.js   唯一的 HTTP 出口
   css/style.css      全部样式            js/ws.js    唯一的 WebSocket 单例（含重连）
@@ -123,11 +123,14 @@ M0 与 M1 的分叉只有一处：`chat.Deps.Store == nil` 时是 M0 纯内存�
 make test        # 单测：含 goleak goroutine 泄漏检测
 make race        # go test -race（guide 10 的必做项）
 make vet
-make loadtest    # k6，需要 TOKEN / WS_URL 环境变量
+make loadtest    # k6 压测（自动注册/登录专属用户，无需手传 TOKEN）
+VUS=200 DURATION=2m ROOMS=20 k6 run loadtest/ws.js   # 摊到 20 个房间，测服务端容量
 
 # 需要真实 Redis 的集成测试（Store 的 Stream/dedup/presence/meta 行为）
 REDIS_TEST_ADDR=localhost:6379 go test ./internal/store/ -run Integration -v
 ```
+
+压测怎么读数、以及"什么时候该怀疑压测器而不是服务端"，见 [`loadtest/README.md`](loadtest/README.md)。
 
 测试用假连接（`internal/chat/testutil_test.go`）覆盖了扇出、背压踢人、房间切换、
 幂等重发、落库失败回滚、M0/M1 两条写路径；`internal/api/ws_test.go` 用 `httptest`

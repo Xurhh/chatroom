@@ -59,7 +59,8 @@ smoke:
 	@curl -s localhost:8080/healthz ; echo
 
 ## ---- 压测（需要 k6）----
-## TOKEN=... WS_URL=ws://localhost:8080 k6 run loadtest/ws.js
+## 默认 500VU 单房间（极限扇出）；真实拓扑用 ROOMS 把人数摊开：VUS=200 ROOMS=20 make loadtest
+## 先读 loadtest/README.md：单房间下 ack 延迟主要由压测器自己决定
 loadtest:
 	k6 run loadtest/ws.js
 

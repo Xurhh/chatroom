@@ -287,7 +287,7 @@ func (h *Hub) remove(req unregisterReq) {
 	}
 	c.shutdown(req.closeCode, req.reason)
 }
-
+// applySwitch 把连接从旧房间移到新房间（调用方必须已在 run goroutine 内）。
 func (h *Hub) applySwitch(req *switchReq) {
 	defer close(req.done)
 	c, room := req.client, req.room
